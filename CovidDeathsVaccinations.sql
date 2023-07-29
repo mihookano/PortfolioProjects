@@ -137,6 +137,7 @@ FROM #PercentPopulationVaccinated
 
 -- Creating View to store data for later visualizations 
 
+-- 1. Percentage of Vaccinated Population
 CREATE VIEW PercentPopulationVaccinated AS 
 SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
 	, SUM(cast(vac.new_vaccinations as int)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated
@@ -148,6 +149,7 @@ JOIN PortfolioProject..['COVID_Vaccinations$'] vac
 WHERE dea.continent is not null
 -- ORDER BY 2,3
 
+-- 2. Continent with Highest Death Caused by COVID
 CREATE VIEW HighestCOVIDDeathContinent AS
 SELECT continent, MAX(cast(total_deaths as int)) AS total_death_count
 FROM PortfolioProject..['COVID_Deaths$']
@@ -155,3 +157,55 @@ FROM PortfolioProject..['COVID_Deaths$']
 WHERE continent is not null
 GROUP BY continent
 -- ORDER BY total_death_count DESC
+
+-- 3. Global COVID Cases and Death Percentages
+CREATE VIEW GlobalCOVIDCases AS
+-- SET ARITHABORT OFF
+-- SET ANSI_WARNINGS OFF
+SELECT SUM(new_cases) AS total_cases, SUM(cast(new_deaths as int)) AS total_deaths, SUM(cast(new_deaths AS int))/SUM(new_cases)*100 AS death_percentage
+FROM PortfolioProject..['COVID_Deaths$']
+-- WHERE location like '%states%' 
+WHERE continent is not null
+--GROUP BY date
+ORDER BY 1,2
+
+-- Collecting Tables for Tableau Visualizations 
+
+-- 1. Global COVID Cases and Death Percentages
+SET ARITHABORT OFF
+SET ANSI_WARNINGS OFF
+SELECT SUM(new_cases) AS total_cases, SUM(cast(new_deaths as int)) AS total_deaths, SUM(cast(new_deaths AS int))/SUM(new_cases)*100 AS death_percentage
+FROM PortfolioProject..['COVID_Deaths$']
+-- WHERE location like '%states%' 
+WHERE continent is not null
+GROUP BY date
+ORDER BY 1,2
+
+-- 2. Total Death Count Based on Continents
+SELECT location, MAX(cast(total_deaths as int)) AS total_death_count
+FROM PortfolioProject..['COVID_Deaths$']
+-- WHERE location like '%states%'
+WHERE continent is null 
+	AND location not in ('World', 'European Union', 'International', 'Upper middle income', 'Lower middle income', 'Low income', 'High income')
+GROUP BY location
+ORDER BY total_death_count DESC
+
+-- 3. Global Percent Population Infected 
+SELECT location, population, MAX(total_cases) AS highest_infection_count, (cast(MAX(total_cases) as numeric))/(cast(population as numeric))*100 AS percent_population_infected
+FROM PortfolioProject..['COVID_Deaths$']
+-- WHERE location like '%states%'
+GROUP BY location, population
+ORDER BY percent_population_infected DESC
+
+-- 4. Global Percent Population Infected with Date
+SELECT location, population, date, MAX(total_cases) AS highest_infection_count, (cast(MAX(total_cases) as numeric))/(cast(population as numeric))*100 AS percent_population_infected
+FROM PortfolioProject..['COVID_Deaths$']
+-- WHERE location like '%states%'
+GROUP BY location, population, date
+ORDER BY percent_population_infected DESC
+
+SELECT continent, location, date, population, total_deaths
+FROM PortfolioProject..['COVID_Deaths$']
+WHERE continent is null
+GROUP BY continent, location, date, population, total_deaths
+ORDER BY 2,3
